@@ -1,0 +1,17 @@
+[package]
+name = "zkp_proof"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+winterfell="0.10.3"
+# winterfell = {  path = "../winterfell/winterfell"}
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
+# winter-utils = "0.10.1"
+# core-utils="0.1.2"
+criterion = "0.5.1"
+rayon="1.10.0"
+winter-utils = { path = "../winterfell/utils/core" }
+actix-web = "4.9.0"
+winter-crypto = "0.10.2"
