@@ -1,55 +1,84 @@
 
 use std::f64::consts::PI;
 use winter_crypto::{hashers::Blake3_256, DefaultRandomCoin, MerkleTree};
-use winterfell::FieldExtension;
+
 use winterfell::{
-    math::{fields::f128::BaseElement, FieldElement, StarkField, ToElements},
+    math::{fields::f128::BaseElement, FieldElement, ToElements},
     matrix::ColMatrix,
     Air, AirContext, Assertion, DefaultConstraintEvaluator, DefaultTraceLde, EvaluationFrame,
     PartitionOptions, ProofOptions, Prover, StarkDomain, Trace, TraceInfo, TracePolyTable,
     TraceTable, TransitionConstraintDegree,
 };
+use winterfell::math::StarkField;
+
+use gpx::Gpx; 
+use std::fs::File;
+
+
 use winterfell::{verify, AcceptableOptions, Proof};
+use winterfell::DefaultConstraintCommitment;
+use winterfell::CompositionPoly;
+use winterfell::CompositionPolyTrace;
 
 type Blake3 = Blake3_256<BaseElement>;
 type VC = MerkleTree<Blake3>;
 
+// #[derive(Default)]
+struct Time {
+    seconds: u64,
+}
 
-// Генерация трассировки для GPS-сегментов (широта, долгота, время)
-pub fn build_gps_trace_with_time(
-    start_lat: f64,
-    start_lon: f64,
-    start_time: u64,
-    step_time: u64,
-    n: usize,
-) -> TraceTable<BaseElement> {
+impl Default for Time {
+    fn default() -> Self {
+        Time { seconds: 0 }
+    }
+}
+
+impl Time {
+    pub fn timestamp(&self) -> u64 {
+        self.seconds
+    }
+}
+
+pub fn build_gps_trace_from_gpx(gpx: &Gpx) -> TraceTable<BaseElement> {
     let trace_width: usize = 3; // Ширина трассировки: широта, долгота, время
+    let n = gpx.waypoints.len(); // Количество точек в маршруте
     let mut trace: TraceTable<BaseElement> = TraceTable::new(trace_width, n);
 
     let scale_factor: f64 = 10_000_000.0; // Коэффициент масштабирования для координат
-    let lat_u128: u128 = (start_lat * scale_factor) as u128;
-    let lon_u128: u128 = (start_lon * scale_factor) as u128;
+    // let time = next_point.time.unwrap_or(Time::default());
+    // let timestamp = next_point.time.unwrap_or(Time::default()).seconds;
 
-    trace.fill(
-        |state: &mut [BaseElement]| {
-            state[0] = BaseElement::new(lat_u128); // Начальная широта
-            state[1] = BaseElement::new(lon_u128); // Начальная долгота
-            state[2] = BaseElement::new(start_time.into()); // Начальное время
-        },
-        |_step, state: &mut [BaseElement]| {
-            // Широта и долгота изменяются на 1
-            let next_lat_u128 = state[0].as_int() as u128 + 1;
-            let next_lon_u128 = state[1].as_int() as u128 + 1;
-            let next_time = state[2].as_int() + step_time as u128;
+    // Наполнение трассировки данными из GPX
+// Исправьте следующим образом
+trace.fill(
+    |state: &mut [BaseElement]| {
+        let first_point = &gpx.waypoints[0];
+        state[0] = BaseElement::new((first_point.point().y() * scale_factor) as u128); // Широта
+        state[1] = BaseElement::new((first_point.point().x() * scale_factor) as u128); // Долгота
+        // state[2] = BaseElement::new(first_point.time as u128); // Время
+    },
+    |step, state: &mut [BaseElement]| {
+        if step < gpx.waypoints.len() - 1 {
+            let current_point = &gpx.waypoints[step];
+            let next_point = &gpx.waypoints[step + 1]; // Теперь правильно определена переменная
+
+            let next_lat_u128 = (next_point.point().y() * scale_factor) as u128;
+            let next_lon_u128 = (next_point.point().x() * scale_factor) as u128;
+            // let next_time = next_point.time.waypoint as u128;
 
             state[0] = BaseElement::new(next_lat_u128); // Обновление широты
             state[1] = BaseElement::new(next_lon_u128); // Обновление долготы
-            state[2] = BaseElement::new(next_time); // Обновление времени
-        },
-    );
+            // state[2] = BaseElement::new(next_time); // Обновление времени
+        }
+    },
+);
+
 
     trace
 }
+
+
 
 
 
@@ -99,6 +128,7 @@ impl Air for GpsAir {
     type GkrProof = ();
     type GkrVerifier = ();
 
+    
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
         assert_eq!(3, trace_info.width()); // Два столбца: широта и долгота
 
@@ -189,12 +219,14 @@ impl Prover for GpsProver {
     type BaseField = BaseElement;
     type Air = GpsAir;
     type Trace = TraceTable<BaseElement>;
-    type HashFn = Blake3;
+    type HashFn = Blake3; // Указан конкретный тип Blake3
     type RandomCoin = DefaultRandomCoin<Blake3>;
     type TraceLde<E: FieldElement<BaseField = BaseElement>> = DefaultTraceLde<E, Blake3, VC>;
     type ConstraintEvaluator<'a, E: FieldElement<BaseField = BaseElement>> =
         DefaultConstraintEvaluator<'a, GpsAir, E>;
     type VC = MerkleTree<Blake3>;
+    type ConstraintCommitment<E: FieldElement<BaseField = Self::BaseField>> =
+        DefaultConstraintCommitment<E, Blake3, Self::VC>;
 
     fn get_pub_inputs(&self, trace: &Self::Trace) -> PublicInputs {
 
@@ -219,7 +251,10 @@ impl Prover for GpsProver {
         partition_options: PartitionOptions,
     ) -> (Self::TraceLde<E>, TracePolyTable<E>) {
         DefaultTraceLde::new(trace_info, main_trace, domain, partition_options)
+
     }
+
+
 
 
     fn new_evaluator<'a, E: FieldElement<BaseField = BaseElement>>(
@@ -234,20 +269,58 @@ impl Prover for GpsProver {
     fn options(&self) -> &ProofOptions {
         &self.options
     }
+
+    fn build_constraint_commitment<E: FieldElement<BaseField = Self::BaseField>>(
+        &self,
+        composition_poly_trace: CompositionPolyTrace<E>,
+        num_constraint_composition_columns: usize,
+        domain: &StarkDomain<Self::BaseField>,
+        partition_options: PartitionOptions,
+    ) -> (Self::ConstraintCommitment<E>, CompositionPoly<E>) {
+        DefaultConstraintCommitment::new(
+            composition_poly_trace,
+            num_constraint_composition_columns,
+            domain,
+            partition_options,
+        )
+    }
+
 }
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let _start_lat = 55.7558;
+    let _start_lon = 37.6173;
+    let n = 8;
+    let start_time = 0;
+    let step_time =1;
 
-fn main() {
+    let file = File::open("./gps_data.gpx")?;
+    let reader = std::io::BufReader::new(file);
 
-    // Шаг 1: Определение начальных данных
-    let start_lat = 55.7558; // Начальная широта
-    let start_lon     = 37.6173; // Начальная долгота
-    let n=8; // Количество шагов (для примера 8)
-    let start_time = 0; // Время начала в секундах
-    let step_time = 1; // Шаг времени между измерениями
+    let gpx: Gpx = gpx::read(reader)?;
 
+    // Итерация по ссылкам, чтобы избежать перемещения
+    for waypoint in &gpx.waypoints {
+        println!(
+            "Широта: {}, Долгота: {}, Высота: {:?}, Время: {:?}",
+            waypoint.point().y(), // Исправлено
+            waypoint.point().x(), // Исправлено
+            waypoint.elevation,
+            waypoint.time
+        );
+    }
 
-    // Построение трассировки
-    let trace = build_gps_trace_with_time(start_lat, start_lon, start_time, step_time, n);
+    // Проверка первой точки
+    if let Some(first_waypoint) = gpx.waypoints.get(0) {
+        println!(
+            "Начальная точка: широта={}, долгота={}, время={:?}",
+            first_waypoint.point().y(), // Исправлено
+            first_waypoint.point().x(), // Исправлено
+            first_waypoint.time
+        );
+    }
+
+    // let trace = build_gps_trace_with_time(start_lat, start_lon, start_time, step_time, n);
+    let trace = build_gps_trace_from_gpx(&gpx);
 
     println!("Трассировка:");
     for i in 0..n {
@@ -255,11 +328,10 @@ fn main() {
         let lon = trace.get(1, i).as_int() as f64 / 10_000_000.0;
         let time = trace.get(2, i).as_int();
 
-        // Если это не последний шаг, вычисляем расстояние до следующей точки
         if i < n - 1 {
             let next_lat = trace.get(0, i + 1).as_int() as f64 / 10_000_000.0;
             let next_lon = trace.get(1, i + 1).as_int() as f64 / 10_000_000.0;
-            let distance = calculate_distance(lat, lon, next_lat, next_lon);
+            let distance = calculate_distance(lat, lon, next_lat, next_lon,);
 
             println!(
                 "Шаг {}: Широта: {:.7}, Долгота: {:.7}, Время: {} сек, Расстояние до след.: {:.2} м",
@@ -273,45 +345,6 @@ fn main() {
         }
     }
 
-
-    //Шаг 3: Создание опций для доказательства
-
-    let options = ProofOptions::new(
-        32, // num_queries
-        8,  // blowup_factor
-        0,  // grinding_factor
-        FieldExtension::None,
-        8,   // fri_remainder_max_degree
-        127, // максимальная степень для FRI остатка
-    );
-
-  
-
-    // Шаг 4: Создание провера с опциями
-    let prover = GpsProver::new(options);
-
-    // Шаг 5: Генерация публичных данных на основе трассировки
-    let public_inputs = prover.get_pub_inputs(&trace);
-   
-    // Шаг 6: Генерация доказательства
-    match prover.prove(trace) {
-        Ok(proof) => {
-            println!("Доказательство успешно сгенерировано.");
-
-            // Шаг 7: Верификация доказательства
-            verify_gps_trip(
-                public_inputs.start_lat,
-                public_inputs.start_lon,
-                public_inputs.end_lat,
-                public_inputs.end_lon,
-                proof,
-            );
-      
-        }
-        Err(e) => {
-            println!("Ошибка при генерации доказательства: {}", e);
-        }
-    }
+    Ok(())
 }
-
 
