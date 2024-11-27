@@ -1,5 +1,8 @@
 
 use std::f64::consts::PI;
+use chrono::{DateTime, Utc};
+use time::OffsetDateTime;
+
 use winter_crypto::{hashers::Blake3_256, DefaultRandomCoin, MerkleTree};
 
 use winterfell::{
@@ -11,7 +14,7 @@ use winterfell::{
 };
 use winterfell::math::StarkField;
 
-use gpx::Gpx; 
+
 use std::fs::File;
 
 
@@ -23,63 +26,56 @@ use winterfell::CompositionPolyTrace;
 type Blake3 = Blake3_256<BaseElement>;
 type VC = MerkleTree<Blake3>;
 
-// #[derive(Default)]
-struct Time {
-    seconds: u64,
-}
 
-impl Default for Time {
-    fn default() -> Self {
-        Time { seconds: 0 }
+fn extract_timestamp(time: Option<gpx::Time>) -> i64 {
+    match time {
+        Some(t) => {
+            let offset_datetime: OffsetDateTime = t.into(); // Преобразуем в OffsetDateTime
+
+            // Используем unwrap() для извлечения значения из Option
+            let chrono_time: DateTime<Utc> = DateTime::from_timestamp(offset_datetime.unix_timestamp(), offset_datetime.nanosecond())
+                .expect("Failed to convert OffsetDateTime to DateTime<Utc>");
+
+            chrono_time.timestamp() // Получаем timestamp
+        },
+        None => 0, // Если времени нет, возвращаем 0
     }
 }
 
-impl Time {
-    pub fn timestamp(&self) -> u64 {
-        self.seconds
-    }
-}
-
-pub fn build_gps_trace_from_gpx(gpx: &Gpx) -> TraceTable<BaseElement> {
+// Функция для создания трассировки из данных GPX
+pub fn build_gps_trace_from_gpx(gpx: &gpx::Gpx) -> TraceTable<BaseElement> {
     let trace_width: usize = 3; // Ширина трассировки: широта, долгота, время
     let n = gpx.waypoints.len(); // Количество точек в маршруте
     let mut trace: TraceTable<BaseElement> = TraceTable::new(trace_width, n);
 
     let scale_factor: f64 = 10_000_000.0; // Коэффициент масштабирования для координат
-    // let time = next_point.time.unwrap_or(Time::default());
-    // let timestamp = next_point.time.unwrap_or(Time::default()).seconds;
 
     // Наполнение трассировки данными из GPX
-// Исправьте следующим образом
-trace.fill(
-    |state: &mut [BaseElement]| {
-        let first_point = &gpx.waypoints[0];
-        state[0] = BaseElement::new((first_point.point().y() * scale_factor) as u128); // Широта
-        state[1] = BaseElement::new((first_point.point().x() * scale_factor) as u128); // Долгота
-        // state[2] = BaseElement::new(first_point.time as u128); // Время
-    },
-    |step, state: &mut [BaseElement]| {
-        if step < gpx.waypoints.len() - 1 {
-            let current_point = &gpx.waypoints[step];
-            let next_point = &gpx.waypoints[step + 1]; // Теперь правильно определена переменная
+    trace.fill(
+        |state: &mut [BaseElement]| {
+            let first_point = &gpx.waypoints[0];
+            state[0] = BaseElement::new((first_point.point().y() * scale_factor) as u128); // Широта
+            state[1] = BaseElement::new((first_point.point().x() * scale_factor) as u128); // Долгота
+            state[2] = BaseElement::new(extract_timestamp(first_point.time) as u128); // Время (timestamp)
+        },
+        |step, state: &mut [BaseElement]| {
+            if step < gpx.waypoints.len() - 1 {
+                let current_point = &gpx.waypoints[step];
+                let next_point = &gpx.waypoints[step + 1];
 
-            let next_lat_u128 = (next_point.point().y() * scale_factor) as u128;
-            let next_lon_u128 = (next_point.point().x() * scale_factor) as u128;
-            // let next_time = next_point.time.waypoint as u128;
+                let next_lat_u128 = (next_point.point().y() * scale_factor) as u128;
+                let next_lon_u128 = (next_point.point().x() * scale_factor) as u128;
+                let next_time = extract_timestamp(next_point.time) as u128;
 
-            state[0] = BaseElement::new(next_lat_u128); // Обновление широты
-            state[1] = BaseElement::new(next_lon_u128); // Обновление долготы
-            // state[2] = BaseElement::new(next_time); // Обновление времени
-        }
-    },
-);
-
+                state[0] = BaseElement::new(next_lat_u128); // Обновление широты
+                state[1] = BaseElement::new(next_lon_u128); // Обновление долготы
+                state[2] = BaseElement::new(next_time); // Обновление времени
+            }
+        },
+    );
 
     trace
 }
-
-
-
 
 
 // Вычисление расстояния между координатами
@@ -130,7 +126,7 @@ impl Air for GpsAir {
 
     
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
-        assert_eq!(3, trace_info.width()); // Два столбца: широта и долгота
+        assert_eq!(3, trace_info.width()); 
 
         let degrees =
          vec![TransitionConstraintDegree::new(1),
@@ -290,49 +286,45 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _start_lat = 55.7558;
     let _start_lon = 37.6173;
     let n = 8;
-    let start_time = 0;
-    let step_time =1;
+    let _start_time = 0;
+    let _step_time =1;
 
     let file = File::open("./gps_data.gpx")?;
     let reader = std::io::BufReader::new(file);
 
-    let gpx: Gpx = gpx::read(reader)?;
+    let gpx = gpx::read(reader)?;
+    
 
-    // Итерация по ссылкам, чтобы избежать перемещения
-    for waypoint in &gpx.waypoints {
-        println!(
-            "Широта: {}, Долгота: {}, Высота: {:?}, Время: {:?}",
-            waypoint.point().y(), // Исправлено
-            waypoint.point().x(), // Исправлено
-            waypoint.elevation,
-            waypoint.time
-        );
-    }
+    // // Итерация по ссылкам, чтобы избежать перемещения
+    // for waypoint in &gpx.waypoints {
+    //     println!(
+    //         "Широта: {}, Долгота: {}, Высота: {:?}, Время: {:?}",
+    //         waypoint.point().y(), 
+    //         waypoint.point().x(), 
+    //         waypoint.elevation,
+    //         waypoint.time
+    //     );
+    // }
 
-    // Проверка первой точки
-    if let Some(first_waypoint) = gpx.waypoints.get(0) {
-        println!(
-            "Начальная точка: широта={}, долгота={}, время={:?}",
-            first_waypoint.point().y(), // Исправлено
-            first_waypoint.point().x(), // Исправлено
-            first_waypoint.time
-        );
-    }
+    
 
-    // let trace = build_gps_trace_with_time(start_lat, start_lon, start_time, step_time, n);
-    let trace = build_gps_trace_from_gpx(&gpx);
+   
+    let trace = build_gps_trace_from_gpx( &gpx);
 
     println!("Трассировка:");
     for i in 0..n {
         let lat = trace.get(0, i).as_int() as f64 / 10_000_000.0;
+      
         let lon = trace.get(1, i).as_int() as f64 / 10_000_000.0;
+        
         let time = trace.get(2, i).as_int();
-
+     
         if i < n - 1 {
+           
             let next_lat = trace.get(0, i + 1).as_int() as f64 / 10_000_000.0;
             let next_lon = trace.get(1, i + 1).as_int() as f64 / 10_000_000.0;
-            let distance = calculate_distance(lat, lon, next_lat, next_lon,);
-
+            let distance = calculate_distance(lat, lon, next_lat, next_lon);
+           
             println!(
                 "Шаг {}: Широта: {:.7}, Долгота: {:.7}, Время: {} сек, Расстояние до след.: {:.2} м",
                 i, lat, lon, time, distance
@@ -347,4 +339,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
