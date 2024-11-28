@@ -1,28 +1,28 @@
 use winterfell::{verify, AcceptableOptions, Proof};
 use crate::air::{GpsAir, PublicInputs};
-use winter_crypto::{hashers::Blake3_256, DefaultRandomCoin};
+use winter_crypto::{hashers::Blake3_256, DefaultRandomCoin, MerkleTree};
 use winterfell::math::fields::f128::BaseElement;
 
 type Blake3 = Blake3_256<BaseElement>;
+#[allow(dead_code)]
+type VC = MerkleTree<Blake3>;
 
-
-pub fn verify_gps_trip<VC: winter_crypto::VectorCommitment<winter_crypto::hashers::Blake3_256<winterfell::math::fields::f128::BaseElement>>>(
-    start_lat: BaseElement,
-    start_lon: BaseElement,
-    end_lat: BaseElement,
-    end_lon: BaseElement,
-    proof: Proof,
-) {
-    let options = AcceptableOptions::MinConjecturedSecurity(95);
-    let public_inputs = PublicInputs {
-        start_lat,
-        start_lon,
-        end_lat,
-        end_lon,
+// Проверка доказательства
+pub fn verify_gps_trip(lat: BaseElement, lon: BaseElement, next_lat: BaseElement, next_lon: BaseElement, proof: Proof) {
+    let min_opts: AcceptableOptions = AcceptableOptions::MinConjecturedSecurity(95);
+    let pub_inputs: PublicInputs = PublicInputs {
+       lat,
+        lon,
+        next_lat,
+        next_lon,
     };
-
-    match verify::<GpsAir, Blake3, DefaultRandomCoin<Blake3>, VC>(proof, public_inputs, &options) {
-        Ok(_) => println!("Доказательство успешно проверено."),
-        Err(e) => println!("Ошибка проверки: {:?}", e),
+  
+    match verify::<GpsAir, Blake3, DefaultRandomCoin<Blake3>, VC>(proof, pub_inputs, &min_opts) {
+        Ok(_) => println!("все хорошо!"),
+        Err(e) => {
+            println!("Ошибка верификации: {:?}", e);
+            // Дополнительный вывод для диагностики ошибки
+            eprintln!("Подробности ошибки: {:?}", e);
+        },
     }
 }
