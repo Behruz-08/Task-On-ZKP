@@ -1,7 +1,14 @@
 [package]
 name = "zkp_proof"
-version = "0.1.0"
+# version = "0.1.0"
+version = "0.6.4"
 edition = "2021"
+
+
+[features]
+concurrent = ["prover/concurrent", "std"]
+default = ["std"]
+std = ["prover/std", "verifier/std"]
 
 [dependencies]
 winterfell="0.11.0"
@@ -15,4 +22,10 @@ winter-crypto = "0.11.0"
 chrono = "0.4.38"
 gpx = "0.10.0"
 quick-xml = { version = "0.37.1", features = ["serialize"] }
-time="0.3.36"
+time="0.3.37"
+resolver = "0.1.2"
+log="0.4.22"
+bincode="1.3.3"
+prover = { version = "0.6.1", path = "../prover", package = "winter-prover", default-features = false }
+verifier = { version = "0.6.1", path = "../verifier", package = "winter-verifier", default-features = false }
+rayon = "1.10.0"
