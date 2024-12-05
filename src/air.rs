@@ -3,7 +3,7 @@ use winterfell::math::{fields::f128::BaseElement, FieldElement};
 pub use crate::gps::PublicInputs;
 
 use winterfell::TransitionConstraintDegree;
-// Air для GPS вычислений
+
 pub struct GpsAir {
     context: AirContext<BaseElement>,
     lat: BaseElement,
@@ -20,10 +20,10 @@ impl Air for GpsAir {
 
     
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
-        assert_eq!(3, trace_info.width()); 
+        assert_eq!(4, trace_info.width()); 
 
         let degrees =
-         vec![TransitionConstraintDegree::new(1),TransitionConstraintDegree::new(1)];
+         vec![TransitionConstraintDegree::new(1),TransitionConstraintDegree::new(1), TransitionConstraintDegree::new(1)];
       
         let num_assertions = 4;
 
@@ -43,31 +43,10 @@ impl Air for GpsAir {
         _periodic_values: &[E],
         result: &mut [E],
     ) {
-
-        // let current = frame.current();
-        // let next = frame.next();
-        // let next_lat = current[0] + E::from(BaseElement::ONE);
-        // let next_lon = current[1] + E::from(BaseElement::ONE);
-        // result[0] = next[0] - next_lat;
-        // result[1] = next[1] - next_lon;
-     
-        let current= frame.current();
-       
-
-        let next = frame.next();
-
-        let next_lat =current[0];
-        let next_lon = current[1];
-
-        result[0] = next_lat - current[0];
-        result[1] = next_lon - current[1];
-
-       println!(
-            " Current- evaluate_transition: {:?}, Next: {:?}, Expected Next: {:?}",
-        current, next, [next_lat, next_lon]
-        );
-        
-
+        let current = frame.current(); 
+        let next = frame.next(); 
+        result[0] = next[2] - (current[2] + next[3]); 
+        result[1] = FieldElement::ZERO; 
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {

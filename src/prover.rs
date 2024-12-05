@@ -5,8 +5,6 @@ use winter_crypto::{DefaultRandomCoin, MerkleTree, hashers::Blake3_256,};
 type Blake3 = Blake3_256<BaseElement>;
 type VC = MerkleTree<Blake3>;
 
-
-// Прокси для генерации доказательства
 #[derive(Debug)]
 pub struct GpsProver {
     options: ProofOptions,
@@ -22,7 +20,7 @@ impl  Prover for GpsProver {
     type BaseField = BaseElement;
     type Air = GpsAir;
     type Trace = TraceTable<BaseElement>;
-    type HashFn = Blake3; // Указан конкретный тип Blake3
+    type HashFn = Blake3; 
     type RandomCoin = DefaultRandomCoin<Blake3>;
     type TraceLde<E: FieldElement<BaseField = BaseElement>> = DefaultTraceLde<E, Blake3, VC>;
     type ConstraintEvaluator<'a, E: FieldElement<BaseField = BaseElement>> =
@@ -30,22 +28,19 @@ impl  Prover for GpsProver {
     type VC = MerkleTree<Blake3>;
     type ConstraintCommitment<E: FieldElement<BaseField = Self::BaseField>> =
         DefaultConstraintCommitment<E, Blake3, Self::VC>;
-
-
     fn get_pub_inputs(&self, trace: &Self::Trace) -> PublicInputs {
 
         let last_step = trace.length() - 1;
  
         PublicInputs {
-           lat: trace.get(0, 0),
+            lat: trace.get(0, 0),
             lon: trace.get(1, 0),
             next_lat: trace.get(0, last_step),
             next_lon: trace.get(1, last_step),
+            time: trace.get(2, 0),            
+            next_time: trace.get(2, last_step), 
            
         }
-
-       
-
     } 
 
     fn new_trace_lde<E: FieldElement<BaseField = Self::BaseField>>(
@@ -86,7 +81,4 @@ impl  Prover for GpsProver {
             partition_options,
         )
     }
-
-    
-
 } 
