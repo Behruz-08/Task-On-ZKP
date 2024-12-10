@@ -7,6 +7,8 @@ use crate::utils::{calculate_distance, extract_timestamp};
 
 pub fn build_gps_trace_from_gpx(gpx: &gpx::Gpx) -> TraceTable<BaseElement> {
     let mut current_len = gpx.waypoints.len();
+
+    
     if !current_len.is_power_of_two() {
         let next = current_len.next_power_of_two();
         println!("Current length is: {}. Next power of 2 is: {}", current_len, next);
