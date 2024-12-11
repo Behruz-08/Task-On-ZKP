@@ -13,8 +13,6 @@ use gps::PublicInputs;
 use prover::GpsProver;
 
 use segment::parse_gpx;
-// use segment::split_gps_into_segments;
-use segment::SegmentConfig;
 use serde::Serialize;
 use trace::{build_gps_trace_from_gpx, display_trace};
 use verifier::verify_gps_trip;
@@ -51,37 +49,36 @@ impl Serialize for PublicInputs {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let file = File::open("./gps_data.gpx")?;
+    let file = File::open("./dushanbe.gpx")?;
     let reader = std::io::BufReader::new(file);
     // let gpx_data = fs::read_to_string("./gps_data.gpx").expect("Failed to read GPX file");
-    let gpx = gpx::read(reader)?;
+    let mut gpx = gpx::read(reader)?;
 
     let options = ProofOptions::new(
         32, // number of queries
         16, // blowup factor
         0,  // grinding factor
         FieldExtension::None,
-        8,  // FRI folding factor
-        31, // FRI remainder max degree
+        8,   // FRI folding factor
+        127, // FRI remainder max degree
     );
 
-    let trace = build_gps_trace_from_gpx(&gpx);
+    let trace = build_gps_trace_from_gpx(&mut gpx);
 
     let prover = GpsProver::new(options);
     let proof = prover.get_pub_inputs(&trace);
     let proof_bytes = serde_json::to_vec(&proof)?;
     println!("Proof size: {:.1} KB", proof_bytes.len() as f64);
 
-    display_trace(&trace);
+      display_trace(&trace);
 
-    let gpx_data = std::fs::read_to_string("gps_data.gpx")?;
+    let gpx_data = std::fs::read_to_string("./dushanbe.gpx")?;
+
     let gps_points = parse_gpx(&gpx_data)?;
 
     println!("Всего точек: {}", gps_points.len());
 
-    // let config = SegmentConfig { segment_length: 8 };
-
-    let segments = gps_points.chunks(16).collect::<Vec<_>>();
+    let segments = gps_points.chunks(128).collect::<Vec<_>>();
 
     println!("Всего сегментов: {}", segments.len());
     for (i, segment) in segments.iter().enumerate() {

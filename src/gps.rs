@@ -5,9 +5,8 @@ pub struct PublicInputs {
     pub lon: BaseElement,
     pub next_lat: BaseElement,
     pub next_lon: BaseElement,
-    pub time: BaseElement,        
+    pub time: BaseElement,
     pub next_time: BaseElement,
-   
 }
 
 impl winterfell::math::ToElements<BaseElement> for PublicInputs {
