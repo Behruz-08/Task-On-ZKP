@@ -12,14 +12,14 @@ std = ["prover/std", "verifier/std"]
 
 [dependencies]
 winterfell="0.11.0"
-serde = { version = "1.0.215", features = ["derive"] }
+serde = { version = "1.0.216", features = ["derive"] }
 serde_json = "1.0.133"
 criterion = "0.5.1"
 winter-utils = "0.11.0"
 actix-web = "4.9.0"
 winter-crypto = "0.11.0"
 # quick-xml = "0.37.1"
-chrono = "0.4.39"
+chrono = "0.4.38"
 gpx = "0.10.0"
 quick-xml = { version = "0.37.1", features = ["serialize"] }
 # time="0.3.37"
@@ -31,3 +31,4 @@ verifier = { version = "0.11.0", path = "../verifier", package = "winter-verifie
 rayon = "1.10.0"
 serde-xml-rs = "0.6.0"
 num-conv = "0.1.0"
+time="0.3.37"

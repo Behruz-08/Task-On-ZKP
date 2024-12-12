@@ -29,7 +29,7 @@ pub fn parse_gpx(gpx_data: &str) -> Result<Vec<GpsPoint>, Box<dyn std::error::Er
                 lon = e
                     .attributes()
                     .find(|attr| attr.as_ref().unwrap().key == QName(b"lon"))
-                    .and_then(|attr| String::from_utf8_lossy(&attr.unwrap().value).parse().ok());
+                    .and_then(|attr: Result<quick_xml::events::attributes::Attribute<'_>, quick_xml::events::attributes::AttrError>| String::from_utf8_lossy(&attr.unwrap().value).parse().ok());
             },
             Event::End(ref e) if e.name() == QName(b"trkpt") => {
                 if let (Some(lat), Some(lon)) = (lat, lon) {

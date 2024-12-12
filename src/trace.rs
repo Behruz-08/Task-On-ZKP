@@ -44,7 +44,7 @@ pub fn build_gps_trace_from_gpx(gpx: &Gpx) -> TraceTable<BaseElement> {
         |step, state: &mut [BaseElement]| {
             if step < original_len - 1 {
                 let next_point = &track_points[step + 1];
-                let next_lat_u128 = (next_point.0 * scale_factor) as u128;
+                let next_lat_u128 = (next_point.0 * scale_factor) as u128 ;
                 let next_lon_u128 = (next_point.1 * scale_factor) as u128;
                 let next_time = next_point.2 as u128;
 
@@ -81,12 +81,16 @@ pub fn display_trace(trace: &TraceTable<BaseElement>) {
     for i in 0..n {
         let lat = trace.get(0, i).as_int() as f64 / 10_000_000.0;
         let lon = trace.get(1, i).as_int() as f64 / 10_000_000.0;
+       
+
         let time = trace.get(2, i).as_int();
 
-        // Пропускаем пустые шаги
+        //Пропускаем пустые шаги
         if lat == 0.0 && lon == 0.0 && time == 0 {
             continue;
         }
+
+      
 
         if i < n - 1 {
             let next_lat = trace.get(0, i + 1).as_int() as f64 / 10_000_000.0;
@@ -95,7 +99,8 @@ pub fn display_trace(trace: &TraceTable<BaseElement>) {
 
             let time_diff = (next_time - time) as u128;
             let distance = calculate_distance(lat, lon, next_lat, next_lon);
-
+            
+            
             println!(
                 "Шаг {}: Широта: {:.7}, Долгота: {:.7}, Расстояние до след.: {:.2} м, Время: {} сек, Разница времени: {} сек",
                 i, lat, lon, distance, time, time_diff
