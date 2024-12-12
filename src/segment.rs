@@ -1,4 +1,3 @@
-use gpx::Waypoint;
 use quick_xml::name::QName;
 use quick_xml::{events::Event, Reader};
 use serde::Deserialize;
@@ -7,7 +6,7 @@ use serde::Deserialize;
 pub struct GpsPoint {
     pub lat: f64,
     pub lon: f64,
-    pub _time: u64,
+    pub time: u64,
 }
 
 pub fn parse_gpx(gpx_data: &str) -> Result<Vec<GpsPoint>, Box<dyn std::error::Error>> {
@@ -17,7 +16,7 @@ pub fn parse_gpx(gpx_data: &str) -> Result<Vec<GpsPoint>, Box<dyn std::error::Er
 
     let mut lat = None;
     let mut lon = None;
-    let mut time = None;
+    let time = None;
 
     while let Ok(event) = reader.read_event() {
         match event {
@@ -33,7 +32,7 @@ pub fn parse_gpx(gpx_data: &str) -> Result<Vec<GpsPoint>, Box<dyn std::error::Er
             },
             Event::End(ref e) if e.name() == QName(b"trkpt") => {
                 if let (Some(lat), Some(lon)) = (lat, lon) {
-                    gps_points.push(GpsPoint { lat, lon, _time: time.unwrap_or(0) });
+                    gps_points.push(GpsPoint { lat, lon, time: time.unwrap_or(0) });
                 }
             },
             Event::Eof => {

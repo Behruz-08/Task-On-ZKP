@@ -22,7 +22,7 @@ use gpx::{Waypoint, write as write_gpx, Time};
 use prover::GpsProver;
 use segment::parse_gpx;
 use serde::Serialize;
-use trace::{build_gps_trace_from_gpx, display_trace};
+use trace::{build_gps_trace_from_gpx,  write_trace_to_file};
 use verifier::verify_gps_trip;
 use winterfell::{FieldExtension, ProofOptions, Prover};
 use serde::ser::Serializer;
@@ -34,7 +34,7 @@ use time::OffsetDateTime;
 
 const _START_TIME: &str = "10:00 AM";
 const END_DURATION_HOURS: i64 = 6;
-const INPUT_FILE: &str = "dushanbe.gpx";
+const INPUT_FILE: &str = "LA_SJ.gpx";
 const OUTPUT_FILE: &str = "output.gpx";
 
 // Implement display for PublicInputs for better debugging
@@ -69,11 +69,8 @@ impl Serialize for PublicInputs {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 
-
-    // Open and read the GPX file
-    let file = File::open(INPUT_FILE)?;
+    let file = File::open(INPUT_FILE).unwrap();
     let reader = BufReader::new(file);
-
     let mut gpx = gpx::read(reader)?;
 
     println!("Количество треков: {}", gpx.tracks.len());
@@ -136,7 +133,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file = File::open(OUTPUT_FILE)?;
     let reader = std::io::BufReader::new(file);
     // let gpx_data = fs::read_to_string("./gps_data.gpx").expect("Failed to read GPX file");
-    let mut gpx = gpx::read(reader)?;
+    let gpx = gpx::read(reader)?;
 
     let options = ProofOptions::new(
         32, // number of queries
@@ -147,26 +144,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         127, // FRI remainder max degree
     );
 
-    let trace = build_gps_trace_from_gpx(&mut gpx);
+    let trace = build_gps_trace_from_gpx(&gpx);
+    if let Err(e) = write_trace_to_file(&trace, "trace_output.txt") {
+        eprintln!("Error writing to file: {}", e);
+    }
 
     let prover = GpsProver::new(options);
     let proof = prover.get_pub_inputs(&trace);
     let proof_bytes = serde_json::to_vec(&proof)?;
     println!("Proof size: {:.1} KB", proof_bytes.len() as f64);
 
-      display_trace(&trace);
-
-    let gpx_data = std::fs::read_to_string(OUTPUT_FILE)?;
+    let gpx_data = std::fs::read_to_string(INPUT_FILE)?;
 
     let gps_points = parse_gpx(&gpx_data)?;
 
     println!("Всего точек: {}", gps_points.len());
 
-    let segments = gps_points.chunks(128).collect::<Vec<_>>();
+    let segments = gps_points.chunks(32).collect::<Vec<_>>();
 
     println!("Всего сегментов: {}", segments.len());
     for (i, segment) in segments.iter().enumerate() {
-        println!("Сегмент {}: {} точек", i + 1, segment.len());
+        // println!("Сегмент {}: {} точек", i + 1, segment.len());
     }
 
     // Шаг 5: Генерация публичных данных на основе трассировки
@@ -197,3 +195,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+

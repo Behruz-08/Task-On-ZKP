@@ -33,16 +33,3 @@ pub fn calculate_distance(lat: f64, lon: f64, next_lat: f64, next_lon: f64) -> f
     r * c 
 }
 
-// pub fn calculate_distance(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
-//     let r = 6371_000.0;  // Радиус Земли в метрах
-//     let phi1 = lat1.to_radians();
-//     let phi2 = lat2.to_radians();
-//     let delta_phi = (lat2 - lat1).to_radians();
-//     let delta_lambda = (lon2 - lon1).to_radians();
-
-//     let a = (delta_phi / 2.0).sin() * (delta_phi / 2.0).sin()
-//         + phi1.cos() * phi2.cos() * (delta_lambda / 2.0).sin() * (delta_lambda / 2.0).sin();
-//     let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
-
-//     r * c
-// }

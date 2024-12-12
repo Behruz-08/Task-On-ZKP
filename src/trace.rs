@@ -1,8 +1,12 @@
+
+
 use crate::utils::{calculate_distance, extract_timestamp};
 use gpx::Gpx;
 use winterfell::math::fields::f128::BaseElement;
 use winterfell::math::{FieldElement, StarkField};
 use winterfell::{Trace, TraceTable};
+use std::fs::File;
+use std::io::{self, Write}; // Добавляем модуль для работы с файлами
 
 pub fn build_gps_trace_from_gpx(gpx: &Gpx) -> TraceTable<BaseElement> {
     let mut track_points = gpx
@@ -42,24 +46,24 @@ pub fn build_gps_trace_from_gpx(gpx: &Gpx) -> TraceTable<BaseElement> {
             state[3] = BaseElement::ZERO;
         },
         |step, state: &mut [BaseElement]| {
-            if step < original_len - 1 {
-                let next_point = &track_points[step + 1];
-                let next_lat_u128 = (next_point.0 * scale_factor) as u128 ;
+            let next_point = &track_points[step + 1];
+            let all_zeros: bool = next_point.0 == 0.0 && next_point.1 == 0.0;
+            if all_zeros {
+                state[0] = state[0];
+                state[1] = state[1];
+                state[2] = state[2];
+                state[3] = BaseElement::ZERO;
+            } else {
+                let next_lat_u128 = (next_point.0 * scale_factor) as u128;
                 let next_lon_u128 = (next_point.1 * scale_factor) as u128;
                 let next_time = next_point.2 as u128;
-
                 let previous_timestamp = state[2].as_int() as u128;
                 let time_diff = next_time - previous_timestamp;
+
                 state[0] = BaseElement::new(next_lat_u128);
                 state[1] = BaseElement::new(next_lon_u128);
                 state[2] = BaseElement::new(next_time);
                 state[3] = BaseElement::new(time_diff);
-            } else {
-                
-                state[0] = BaseElement::ZERO;
-                state[1] = BaseElement::ZERO;
-                state[2] = BaseElement::ZERO;
-                state[3] = BaseElement::ZERO;
             }
         },
     );
@@ -67,46 +71,24 @@ pub fn build_gps_trace_from_gpx(gpx: &Gpx) -> TraceTable<BaseElement> {
     trace
 }
 
+pub fn write_trace_to_file(trace: &TraceTable<BaseElement>, file_path: &str) -> io::Result<()> {
+    let mut file = File::create(file_path)?; // Создаем или открываем файл для записи
 
-
-pub fn display_trace(trace: &TraceTable<BaseElement>) {
-    println!("Трассировка:");
     let n = trace.length();
-
     if n == 0 {
-        println!("Трассировка пуста.");
-        return;
+        writeln!(file, "Трассировка пуста.")?;
+        return Ok(());
     }
 
     for i in 0..n {
-        let lat = trace.get(0, i).as_int() as f64 / 10_000_000.0;
-        let lon = trace.get(1, i).as_int() as f64 / 10_000_000.0;
-       
-
-        let time = trace.get(2, i).as_int();
-
-        //Пропускаем пустые шаги
-        if lat == 0.0 && lon == 0.0 && time == 0 {
-            continue;
-        }
-
-      
-
-        if i < n - 1 {
-            let next_lat = trace.get(0, i + 1).as_int() as f64 / 10_000_000.0;
-            let next_lon = trace.get(1, i + 1).as_int() as f64 / 10_000_000.0;
-            let next_time = trace.get(2, i + 1).as_int();
-
-            let time_diff = (next_time - time) as u128;
-            let distance = calculate_distance(lat, lon, next_lat, next_lon);
-            
-            
-            println!(
-                "Шаг {}: Широта: {:.7}, Долгота: {:.7}, Расстояние до след.: {:.2} м, Время: {} сек, Разница времени: {} сек",
-                i, lat, lon, distance, time, time_diff
-            );
-        } else {
-            println!("Шаг {}: Широта: {:.7}, Долгота: {:.7}, Время: {} сек", i, lat, lon, time);
-        }
+        let lat = trace.get(0, i);
+        let lon = trace.get(1, i);
+        let time = trace.get(2, i);
+        let time_diff = trace.get(3, i);
+    
+        // Записываем данные в файл
+        writeln!(file, "{}, {}, {}, {}", lat, lon, time, time_diff)?;
     }
+
+    Ok(())
 }
