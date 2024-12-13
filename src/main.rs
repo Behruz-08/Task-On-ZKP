@@ -34,7 +34,7 @@ use time::OffsetDateTime;
 
 const _START_TIME: &str = "10:00 AM";
 const END_DURATION_HOURS: i64 = 6;
-const INPUT_FILE: &str = "LA_SJ.gpx";
+const INPUT_FILE: &str = "dushanbe.gpx";
 const OUTPUT_FILE: &str = "output.gpx";
 
 // Implement display for PublicInputs for better debugging
@@ -125,14 +125,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let writer = BufWriter::new(output);
     
     write_gpx(&gpx, writer).map_err(|e| format!("Ошибка записи файла '{}': {}", OUTPUT_FILE, e))?;
-
     println!("Файл успешно сохранён: {}", OUTPUT_FILE);
-
-
 
     let file = File::open(OUTPUT_FILE)?;
     let reader = std::io::BufReader::new(file);
-    // let gpx_data = fs::read_to_string("./gps_data.gpx").expect("Failed to read GPX file");
     let gpx = gpx::read(reader)?;
 
     let options = ProofOptions::new(
@@ -145,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let trace = build_gps_trace_from_gpx(&gpx);
-    if let Err(e) = write_trace_to_file(&trace, "trace_output.txt") {
+    if let Err(e) = write_trace_to_file(&trace, "trace_output.csv") {
         eprintln!("Error writing to file: {}", e);
     }
 
@@ -155,17 +151,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Proof size: {:.1} KB", proof_bytes.len() as f64);
 
     let gpx_data = std::fs::read_to_string(INPUT_FILE)?;
-
     let gps_points = parse_gpx(&gpx_data)?;
-
     println!("Всего точек: {}", gps_points.len());
 
     let segments = gps_points.chunks(32).collect::<Vec<_>>();
-
     println!("Всего сегментов: {}", segments.len());
-    for (i, segment) in segments.iter().enumerate() {
-        // println!("Сегмент {}: {} точек", i + 1, segment.len());
-    }
 
     // Шаг 5: Генерация публичных данных на основе трассировки
     let public_inputs = prover.get_pub_inputs(&trace);
@@ -189,10 +179,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Ошибка при генерации доказательства: {}", e);
         },
     }
-
-    
-
-
     Ok(())
 }
 

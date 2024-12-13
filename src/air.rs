@@ -52,7 +52,6 @@ impl Air for GpsAir {
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
         let last_step = self.trace_length() - 1;
-
         vec![
             Assertion::single(0, 0, self.lat),
             Assertion::single(1, 0, self.lon),
