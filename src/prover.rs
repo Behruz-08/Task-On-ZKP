@@ -1,3 +1,4 @@
+
 use crate::{air::GpsAir, gps::PublicInputs};
 use winter_crypto::{hashers::Blake3_256, DefaultRandomCoin, MerkleTree};
 use winterfell::{math::fields::f128::BaseElement, TraceTable};
