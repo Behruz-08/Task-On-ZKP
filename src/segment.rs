@@ -2,7 +2,7 @@ use quick_xml::name::QName;
 use quick_xml::{events::Event, Reader};
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Clone, Default, Debug, PartialEq,Deserialize)]
 pub struct GpsPoint {
     pub lat: f64,
     pub lon: f64,
